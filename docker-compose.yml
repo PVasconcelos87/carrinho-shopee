@@ -1,0 +1,140 @@
+version: '3.8'
+
+# ============================================================================
+# DOCKER COMPOSE CONFIGURADO PARA MACBOOK (Apple Silicon M1/M2/M3/M4 & Intel)
+# Compatível com Docker Desktop no macOS
+# ============================================================================
+
+services:
+  # ============================================================================
+  # 1. SPEED LAYER — STREAMING DE EVENTOS (KAFKA + ZOOKEEPER)
+  # ============================================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: ecommerce-zookeeper
+    platform: linux/amd64
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - data-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: ecommerce-kafka
+    platform: linux/amd64
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - data-network
+
+  # ============================================================================
+  # 2. BATCH & DISTRIBUTED PROCESSING (APACHE SPARK MASTER + WORKER)
+  # ============================================================================
+  spark-master:
+    image: bitnami/spark:3.5.0
+    container_name: ecommerce-spark-master
+    platform: linux/amd64
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080" # Spark Web UI
+      - "7077:7077" # Spark Master Port
+    volumes:
+      - ./app:/opt/bitnami/spark/app
+      - ./models:/opt/bitnami/spark/models
+      - ./src:/opt/bitnami/spark/src
+    networks:
+      - data-network
+
+  spark-worker:
+    image: bitnami/spark:3.5.0
+    container_name: ecommerce-spark-worker
+    platform: linux/amd64
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    volumes:
+      - ./app:/opt/bitnami/spark/app
+      - ./models:/opt/bitnami/spark/models
+      - ./src:/opt/bitnami/spark/src
+    networks:
+      - data-network
+
+  # ============================================================================
+  # 3. SERVING LAYER — BANCO RELACIONAL ANALÍTICO (POSTGRESQL + PGADMIN)
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecommerce-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ecommerce_db
+      POSTGRES_USER: mack_user
+      POSTGRES_PASSWORD: mack_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    networks:
+      - data-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ecommerce-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mackenzie.br
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - data-network
+
+  # ============================================================================
+  # 4. WEB DASHBOARD & SIMULADOR DOS GATILHOS (PORTA 8000 NO MAC)
+  # ============================================================================
+  web-dashboard:
+    image: nginx:alpine
+    container_name: ecommerce-web-dashboard
+    restart: always
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/usr/share/nginx/html:ro
+    networks:
+      - data-network
+
+networks:
+  data-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

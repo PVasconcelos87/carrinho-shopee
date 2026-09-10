@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopee Cart Abandonment & Coupon ML Recommender</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>Shopee <span>ML</span></h2>
+                    <p>Coupon Recommender</p>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="tab-overview">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Visão Geral & Funil</span>
+                </button>
+                <button class="nav-item" data-tab="tab-coupon-matrix">
+                    <i class="fa-solid fa-ticket-simple"></i>
+                    <span>Matriz de Recomendação</span>
+                </button>
+                <button class="nav-item" data-tab="tab-medallion-data">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span>Arquitetura Medallion</span>
+                </button>
+                <button class="nav-item" data-tab="tab-ml-models">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>Modelos de ML & Métricas</span>
+                </button>
+                <button class="nav-item" data-tab="tab-simulator">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Simulador de Carrinho</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="project-info">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <div>
+                        <strong>MBA Engenharia de Dados</strong>
+                        <p>Mackenzie - Sprint 1 & ML</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="header-bar">
+                <div class="header-title">
+                    <h1 id="page-title">Visão Geral do Abandono de Carrinho</h1>
+                    <p id="page-subtitle">Análise comportamental baseada no dataset real da pasta /basededados (14.6 GB)</p>
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn btn-outline" id="btn-theme-toggle">
+                        <i class="fa-solid fa-sun" id="theme-icon"></i> <span id="theme-text">Modo Claro</span>
+                    </button>
+                    <button class="btn btn-outline" id="btn-reseed">
+                        <i class="fa-solid fa-arrows-rotate"></i> Recarregar Dados ML
+                    </button>
+                    <div class="badge badge-success">
+                        <span class="pulse-dot"></span> Modelo Ativo: Random Forest
+                    </div>
+                </div>
+            </header>
+
+            <!-- TAB 1: OVERVIEW & FUNNEL -->
+            <section id="tab-overview" class="tab-content active">
+                <!-- Executive KPI Cards -->
+                <div class="kpi-grid">
+                    <div class="kpi-card glass-card">
+                        <div class="kpi-icon icon-orange">
+                            <i class="fa-solid fa-shopping-bag"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Total de Carrinhos Reais</span>
+                            <h3 id="kpi-total-carts">2,566</h3>
+                            <span class="kpi-subtext text-neutral"><i class="fa-solid fa-database"></i> Reconstruídos de /basededados</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card glass-card">
+                        <div class="kpi-icon icon-red">
+                            <i class="fa-solid fa-cart-arrow-down"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Taxa de Abandono Real</span>
+                            <h3 id="kpi-abandonment-rate">45.8%</h3>
+                            <span class="kpi-subtext text-danger"><i class="fa-solid fa-arrow-trend-up"></i> 1,175 carrinhos abandonados</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card glass-card">
+                        <div class="kpi-icon icon-yellow">
+                            <i class="fa-solid fa-sack-dollar"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">GMV Não Capturado</span>
+                            <h3 id="kpi-gmv-lost">R$ 524.890</h3>
+                            <span class="kpi-subtext text-warning"><i class="fa-solid fa-triangle-exclamation"></i> Receita em risco</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card glass-card">
+                        <div class="kpi-icon icon-green">
+                            <i class="fa-solid fa-ticket-simple"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">GMV Recuperado (ML)</span>
+                            <h3 id="kpi-gmv-recovered">R$ 274.850</h3>
+                            <span class="kpi-subtext text-success"><i class="fa-solid fa-arrow-trend-up"></i> 1.022 cupons atribuídos</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 1 -->
+                <div class="grid-2col gap-24 margin-top-24">
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-filter"></i> Funil de Conversão de E-commerce (/basededados)</h3>
+                            <p>Interações reais de navegação (View -> Cart -> Purchase)</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-funnel"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-chart-column"></i> Abandono por Categoria Real</h3>
+                            <p>Volume de carrinhos abandonados por segmento de produto</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-category-abandonment"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 2 -->
+                <div class="grid-2col gap-24 margin-top-24">
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-clock"></i> Abandono por Horário do Dia</h3>
+                            <p>Propensão ao abandono medida nos registros temporais do dataset</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-hourly-abandonment"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-layer-group"></i> Estrutura da Arquitetura Medallion</h3>
+                            <p>Alimentada pelos arquivos 2019-Oct.csv e 2019-Nov.csv</p>
+                        </div>
+                        <div class="medallion-architecture-view">
+                            <div class="medallion-layer layer-bronze">
+                                <div class="layer-badge">Bronze</div>
+                                <h4>Raw Events (/basededados)</h4>
+                                <p>14,6 GB de logs brutos: 2019-Oct.csv (5,67 GB) e 2019-Nov.csv (9,01 GB)</p>
+                            </div>
+                            <div class="layer-arrow"><i class="fa-solid fa-chevron-down"></i></div>
+                            <div class="medallion-layer layer-silver">
+                                <div class="layer-badge">Silver</div>
+                                <h4>Trusted Events</h4>
+                                <p>Tipagem de dados, tratamento de nulos, agrupamento por user_session</p>
+                            </div>
+                            <div class="layer-arrow"><i class="fa-solid fa-chevron-down"></i></div>
+                            <div class="medallion-layer layer-gold">
+                                <div class="layer-badge">Gold</div>
+                                <h4>Curated Cart Dataset & ML</h4>
+                                <p>2.566 carrinhos reconstruídos com rótulo de abandono e matriz de cupons</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB UNIFICADA: MATRIZ DE RECOMENDAÇÃO DE CUPONS (UNIFICADA) -->
+            <section id="tab-coupon-matrix" class="tab-content">
+                <div class="glass-card panel">
+                    <div class="panel-header flex-between">
+                        <div>
+                            <h3><i class="fa-solid fa-ticket-simple"></i> Matriz de Recomendação de Cupons de Desconto</h3>
+                            <p>Aplicação do modelo preditivo de Machine Learning nos carrinhos para recomendação inteligente de cupons de retenção</p>
+                        </div>
+                        <div class="badge badge-success">
+                            <i class="fa-solid fa-bullseye"></i> <span id="matrix-count-badge">1.022 Cupons Atribuídos</span>
+                        </div>
+                    </div>
+
+                    <!-- Filters Header Bar -->
+                    <div class="grid-4col gap-16 margin-top-16">
+                        <div class="form-group">
+                            <label for="filter-status">Status do Carrinho:</label>
+                            <select id="filter-status" class="custom-select">
+                                <option value="ABANDONED" selected>Apenas Abandonados (Target=1)</option>
+                                <option value="ALL">Todos os Carrinhos</option>
+                                <option value="PURCHASED">Apenas Comprados (Target=0)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="filter-coupon-type">Tipo de Cupom:</label>
+                            <select id="filter-coupon-type" class="custom-select">
+                                <option value="ALL">Todos os Cupons</option>
+                                <option value="Frete Grátis Shopee">Frete Grátis Shopee</option>
+                                <option value="Cupom 5% OFF">Cupom 5% OFF</option>
+                                <option value="Cupom 10% OFF Especial">Cupom 10% OFF Especial</option>
+                                <option value="Cupom 15% VIP Recuperação">Cupom 15% VIP Recuperação</option>
+                                <option value="Cupom 5% OFF + Frete Grátis">Cupom 5% OFF + Frete Grátis</option>
+                                <option value="Cupom 10% OFF + Frete Grátis">Cupom 10% OFF + Frete Grátis</option>
+                                <option value="Sem Cupom (Venda Orgânica)">Sem Cupom (Venda Orgânica)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="filter-urgency">Nível de Urgência:</label>
+                            <select id="filter-urgency" class="custom-select">
+                                <option value="ALL">Todas as Urgências</option>
+                                <option value="Crítica">Urgência Crítica</option>
+                                <option value="Alta">Urgência Alta</option>
+                                <option value="Média">Urgência Média</option>
+                                <option value="Baixa">Urgência Baixa</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="search-matrix">Buscar por Sessão / Usuário:</label>
+                            <input type="text" id="search-matrix" placeholder="Digite ID da sessão..." class="custom-input">
+                        </div>
+                    </div>
+
+                    <!-- Unified Matrix Table -->
+                    <div class="table-responsive margin-top-16">
+                        <table class="data-table" id="matrix-table">
+                            <thead>
+                                <tr>
+                                    <th>ID Sessão (user_session)</th>
+                                    <th>ID Usuário</th>
+                                    <th>Valor Carrinho</th>
+                                    <th>Itens</th>
+                                    <th>Score Abandono (ML)</th>
+                                    <th>Urgência</th>
+                                    <th>Cupom Recomendado</th>
+                                    <th>Justificativa da Regra de Negócio</th>
+                                    <th>GMV Rec. Est.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="matrix-table-body">
+                                <!-- Dynamic JS Population -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB ARQUITETURA MEDALLION -->
+            <section id="tab-medallion-data" class="tab-content">
+                <div class="glass-card panel">
+                    <div class="panel-header">
+                        <h3><i class="fa-solid fa-layer-group"></i> Estruturas da Arquitetura Medallion</h3>
+                        <p>Visualização e inspeção dos dados em cada estágio de refinamento do pipeline (Bronze -> Silver -> Gold)</p>
+                    </div>
+
+                    <!-- Layer Navigation Pills -->
+                    <div class="medallion-pills-bar margin-top-16">
+                        <button class="medallion-pill-btn active" data-medallion-target="medallion-bronze-pane">
+                            <span class="pill-badge pill-bronze">Bronze</span> 🥉 Raw Events (<span id="bronze-pill-count" class="pill-count-val">1.005</span>)
+                        </button>
+                        <button class="medallion-pill-btn" data-medallion-target="medallion-silver-pane">
+                            <span class="pill-badge pill-silver">Silver</span> 🥈 Trusted Events (<span id="silver-pill-count" class="pill-count-val">1.005</span>)
+                        </button>
+                        <button class="medallion-pill-btn" data-medallion-target="medallion-gold-pane">
+                            <span class="pill-badge pill-gold">Gold</span> 🥇 Curated Cart ML (<span id="gold-pill-count" class="pill-count-val">1.002</span>)
+                        </button>
+                    </div>
+
+                    <!-- PANE BRONZE -->
+                    <div id="medallion-bronze-pane" class="medallion-pane active margin-top-16">
+                        <div class="layer-banner banner-bronze">
+                            <div>
+                                <h4><i class="fa-solid fa-database"></i> Camada Bronze — Raw Events (Massa Total de 14.68 GB)</h4>
+                                <p>Logs brutos integrados de ambos os arquivos da pasta <code>/basededados</code> (<code>2019-Oct.csv</code> e <code>2019-Nov.csv</code>). Preservação integral do esquema de origem.</p>
+                            </div>
+                            <div class="layer-stats-badge">
+                                <strong>14.68 GB Massa Total</strong> | 2 Arquivos CSV (Oct + Nov) | <span id="bronze-stats-count">1.005</span> Registros Carregados
+                            </div>
+                        </div>
+
+                        <!-- Bronze Filter Bar -->
+                        <div class="grid-2col gap-16 margin-top-16">
+                            <div class="form-group">
+                                <label for="filter-bronze-event">Filtrar por Tipo de Evento:</label>
+                                <select id="filter-bronze-event" class="custom-select">
+                                    <option value="ALL" selected>Todos os Eventos (view, cart, purchase)</option>
+                                    <option value="view">Apenas Visualizações (view)</option>
+                                    <option value="cart">Apenas Carrinhos (cart)</option>
+                                    <option value="purchase">Apenas Compras (purchase)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="search-bronze">Buscar por ID, Marca, Categoria ou Sessão:</label>
+                                <input type="text" id="search-bronze" placeholder="Pesquisar nos registros da Camada Bronze..." class="custom-input">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive margin-top-16">
+                            <table class="data-table" id="bronze-table">
+                                <thead>
+                                    <tr id="bronze-header-row">
+                                        <th class="sortable" data-col="event_time">event_time <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="event_type">event_type <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="product_id">product_id <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="category_id">category_id <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="category_code">category_code <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="brand">brand <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="price">price ($/R$) <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="user_id">user_id <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="user_session">user_session <i class="fa-solid fa-sort sort-icon"></i></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bronze-table-body">
+                                    <!-- Dynamic JS Population -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="pagination-bar margin-top-16">
+                            <div class="pagination-info" id="bronze-page-info">Exibindo página 1 de 100 (1.000 registros total)</div>
+                            <div class="pagination-right-controls">
+                                <label for="bronze-page-size" class="page-size-label">Exibir:</label>
+                                <select id="bronze-page-size" class="custom-select page-size-select">
+                                    <option value="10" selected>10 por página (100 págs)</option>
+                                    <option value="25">25 por página (40 págs)</option>
+                                    <option value="50">50 por página (20 págs)</option>
+                                    <option value="100">100 por página (10 págs)</option>
+                                </select>
+                                <div class="pagination-controls" id="bronze-pagination-controls"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PANE SILVER -->
+                    <div id="medallion-silver-pane" class="medallion-pane margin-top-16">
+                        <div class="layer-banner banner-silver">
+                            <div>
+                                <h4><i class="fa-solid fa-filter-circle-dollar"></i> Camada Silver — Trusted Events (Massa Total de 14.68 GB)</h4>
+                                <p>Eventos limpos e padronizados de ambos os arquivos. Conversão de timestamps para ISO-8601, tratamento de nulos em marcas/categorias e enriquecimento temporal.</p>
+                            </div>
+                            <div class="layer-stats-badge">
+                                <strong>14.68 GB Processados</strong> | Deduplicado & Tipado | <span id="silver-stats-count">1.005</span> Registros Carregados
+                            </div>
+                        </div>
+
+                        <!-- Silver Filter Bar -->
+                        <div class="grid-2col gap-16 margin-top-16">
+                            <div class="form-group">
+                                <label for="filter-silver-event">Filtrar por Tipo de Evento:</label>
+                                <select id="filter-silver-event" class="custom-select">
+                                    <option value="ALL" selected>Todos os Eventos (view, cart, purchase)</option>
+                                    <option value="view">Apenas Visualizações (view)</option>
+                                    <option value="cart">Apenas Carrinhos (cart)</option>
+                                    <option value="purchase">Apenas Compras (purchase)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="search-silver">Buscar por ID, Marca, Categoria ou Sessão:</label>
+                                <input type="text" id="search-silver" placeholder="Pesquisar nos registros da Camada Silver..." class="custom-input">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive margin-top-16">
+                            <table class="data-table" id="silver-table">
+                                <thead>
+                                    <tr id="silver-header-row">
+                                        <th class="sortable" data-col="event_time">event_time (dt) <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="event_type">event_type <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="product_id">product_id <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="category_code">category_code (Tratado) <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="brand">brand (Tratada) <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="price">price <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="user_id">user_id <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="user_session">user_session <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="hour_of_day">hour_of_day <i class="fa-solid fa-sort sort-icon"></i></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="silver-table-body">
+                                    <!-- Dynamic JS Population -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="pagination-bar margin-top-16">
+                            <div class="pagination-info" id="silver-page-info">Exibindo página 1 de 100 (1.000 registros total)</div>
+                            <div class="pagination-right-controls">
+                                <label for="silver-page-size" class="page-size-label">Exibir:</label>
+                                <select id="silver-page-size" class="custom-select page-size-select">
+                                    <option value="10" selected>10 por página (100 págs)</option>
+                                    <option value="25">25 por página (40 págs)</option>
+                                    <option value="50">50 por página (20 págs)</option>
+                                    <option value="100">100 por página (10 págs)</option>
+                                </select>
+                                <div class="pagination-controls" id="silver-pagination-controls"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PANE GOLD -->
+                    <div id="medallion-gold-pane" class="medallion-pane margin-top-16">
+                        <div class="layer-banner banner-gold">
+                            <div>
+                                <h4><i class="fa-solid fa-star"></i> Camada Gold — Curated Cart Dataset & ML (Massa Total de 14.68 GB)</h4>
+                                <p>Dataset de alto nível agregado por sessão (<code>user_session</code>) cobrindo toda a massa de dados dos 2 arquivos do Kaggle.</p>
+                            </div>
+                            <div class="layer-stats-badge">
+                                <strong>Massa Total Consolidada</strong> | Target is_abandoned | <span id="gold-stats-count">1.002</span> Carrinhos Carregados
+                            </div>
+                        </div>
+
+                        <!-- Gold Filter Bar -->
+                        <div class="grid-2col gap-16 margin-top-16">
+                            <div class="form-group">
+                                <label for="filter-gold-target">Filtrar por Status de Abandono (Target):</label>
+                                <select id="filter-gold-target" class="custom-select">
+                                    <option value="ALL" selected>Todos os Carrinhos</option>
+                                    <option value="1">Apenas Abandonados (Target=1)</option>
+                                    <option value="0">Apenas Comprados (Target=0)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="search-gold">Buscar por ID de Usuário ou Sessão:</label>
+                                <input type="text" id="search-gold" placeholder="Pesquisar nos registros da Camada Gold..." class="custom-input">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive margin-top-16">
+                            <table class="data-table" id="gold-table">
+                                <thead>
+                                    <tr id="gold-header-row">
+                                        <th class="sortable" data-col="user_session">user_session <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="user_id">user_id <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="total_cart_value">total_cart_value <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="num_cart_items">num_cart_items <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="num_views_before_cart">num_views <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="view_to_cart_ratio">view_to_cart_ratio <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="session_duration_sec">session_duration_sec <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="is_night">is_night <i class="fa-solid fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-col="is_abandoned">is_abandoned (Target) <i class="fa-solid fa-sort sort-icon"></i></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gold-table-body">
+                                    <!-- Dynamic JS Population -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="pagination-bar margin-top-16">
+                            <div class="pagination-info" id="gold-page-info">Exibindo página 1 de 100 (1.000 registros total)</div>
+                            <div class="pagination-right-controls">
+                                <label for="gold-page-size" class="page-size-label">Exibir:</label>
+                                <select id="gold-page-size" class="custom-select page-size-select">
+                                    <option value="10" selected>10 por página (100 págs)</option>
+                                    <option value="25">25 por página (40 págs)</option>
+                                    <option value="50">50 por página (20 págs)</option>
+                                    <option value="100">100 por página (10 págs)</option>
+                                </select>
+                                <div class="pagination-controls" id="gold-pagination-controls"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: ML MODELS & METRICS -->
+            <section id="tab-ml-models" class="tab-content">
+                <!-- Painel Especial: Jornada do Comprador e Ganho de Acurácia -->
+                <div class="glass-card panel margin-bottom-24" style="border-left: 4px solid var(--accent); margin-bottom: 24px;">
+                    <div class="panel-header flex-between">
+                        <div>
+                            <h3><i class="fa-solid fa-route"></i> Jornada do Comprador: Visualizações e Carrinhos até a Compra</h3>
+                            <p>Análise temporal da jornada multissessão do comprador (user_id) e impacto no ganho de acurácia de Machine Learning</p>
+                        </div>
+                        <div class="badge badge-success">
+                            <i class="fa-solid fa-arrow-trend-up"></i> Acurácia: 60.7% ➔ 75.2% (+14.5%)
+                        </div>
+                    </div>
+                    <div class="grid-4col gap-16 margin-top-16">
+                        <div class="metric-box">
+                            <span class="metric-label">Views Médias antes da Compra</span>
+                            <span class="metric-value text-accent" id="metric-journey-views">10.1 views</span>
+                            <small class="text-muted" style="display:block; margin-top:4px;">Mediana: 7.0 views (P25-P75: 3 a 16)</small>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">Carrinhos Prévios até Comprar</span>
+                            <span class="metric-value text-warning" id="metric-journey-carts">0.99 carts</span>
+                            <small class="text-muted" style="display:block; margin-top:4px;">Mediana: 1.0 cart (57.3% abandonam antes)</small>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">Conversão no 3º+ Carrinho</span>
+                            <span class="metric-value text-success" id="metric-journey-conv">44.2%</span>
+                            <small class="text-muted" style="display:block; margin-top:4px;">vs. 20.8% no 1º carrinho (+23.4 p.p.)</small>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">Tempo Médio de Decisão</span>
+                            <span class="metric-value text-primary" id="metric-journey-time">54.6 horas</span>
+                            <small class="text-muted" style="display:block; margin-top:4px;">~2.3 dias até a conversão final</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Performance Overview Header -->
+                <div class="glass-card panel">
+                    <div class="panel-header flex-between">
+                        <div>
+                            <h3><i class="fa-solid fa-sliders"></i> Comparação de Algoritmos de Classificação</h3>
+                            <p>Modelos treinados e validados no dataset enriquecido com a jornada temporal do comprador</p>
+                        </div>
+                        <div class="model-selector">
+                            <label for="select-model-comparison">Modelo Selecionado:</label>
+                            <select id="select-model-comparison" class="custom-select">
+                                <option value="rf" selected>Random Forest Classifier (Vencedor)</option>
+                                <option value="hgb">HistGradientBoosting</option>
+                                <option value="lr">Regressão Logística (Baseline)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid-4col gap-16 margin-top-16">
+                        <div class="metric-box">
+                            <span class="metric-label">Acurácia</span>
+                            <span class="metric-value text-accent" id="metric-accuracy">75.2%</span>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">ROC-AUC</span>
+                            <span class="metric-value text-success" id="metric-roc-auc">0.680</span>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">Precisão (Precision)</span>
+                            <span class="metric-value text-primary" id="metric-precision">77.4%</span>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">Revocação (Recall)</span>
+                            <span class="metric-value text-warning" id="metric-recall">94.4%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ML Charts Grid -->
+                <div class="grid-2col gap-24 margin-top-24">
+                    <!-- ROC Curve -->
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-chart-line"></i> Curva ROC (Receiver Operating Characteristic)</h3>
+                            <p>Capacidade de discriminação entre compra e abandono nos dados de teste</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-roc-curve"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Feature Importance -->
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-ranking-star"></i> Importância das Variáveis (Feature Importances)</h3>
+                            <p>Fatores com maior peso preditivo no modelo enriquecido</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-feature-importance"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-2col gap-24 margin-top-24">
+                    <!-- Confusion Matrix -->
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-table-cells"></i> Matriz de Confusão (Dados de Teste)</h3>
+                            <p>Resultado da validação do Random Forest Classifier no conjunto de teste</p>
+                        </div>
+                        <div class="confusion-matrix-wrapper">
+                            <div class="cm-grid">
+                                <div class="cm-header"></div>
+                                <div class="cm-header">Previsto: Compra (0)</div>
+                                <div class="cm-header">Previsto: Abandono (1)</div>
+                                
+                                <div class="cm-side-header">Real: Compra (0)</div>
+                                <div class="cm-cell cell-tn" id="cm-tn">
+                                    <span class="cm-val">20</span>
+                                    <span class="cm-lbl">Verdadeiro Negativo (TN)</span>
+                                </div>
+                                <div class="cm-cell cell-fp" id="cm-fp">
+                                    <span class="cm-val">89</span>
+                                    <span class="cm-lbl">Falso Positivo (FP)</span>
+                                </div>
+
+                                <div class="cm-side-header">Real: Abandono (1)</div>
+                                <div class="cm-cell cell-fn" id="cm-fn">
+                                    <span class="cm-val">18</span>
+                                    <span class="cm-lbl">Falso Negativo (FN)</span>
+                                </div>
+                                <div class="cm-cell cell-tp" id="cm-tp">
+                                    <span class="cm-val">305</span>
+                                    <span class="cm-lbl">Verdadeiro Positivo (TP)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model Comparison Table -->
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-trophy"></i> Tabela Comparativa de Algoritmos Reais</h3>
+                            <p>Métricas consolidadas com a inclusão do histórico comportamental do comprador</p>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Algoritmo ML</th>
+                                        <th>ROC-AUC</th>
+                                        <th>Acurácia</th>
+                                        <th>Precision</th>
+                                        <th>Recall</th>
+                                        <th>F1-Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="highlight-row">
+                                        <td><strong>Random Forest ★</strong></td>
+                                        <td><span class="badge badge-success">0.6798</span></td>
+                                        <td>75.23%</td>
+                                        <td>77.41%</td>
+                                        <td>94.43%</td>
+                                        <td>85.08%</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Regressão Logística</strong></td>
+                                        <td><span class="badge badge-neutral">0.6842</span></td>
+                                        <td>73.15%</td>
+                                        <td>76.07%</td>
+                                        <td>93.50%</td>
+                                        <td>83.89%</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>HistGradientBoosting</strong></td>
+                                        <td><span class="badge badge-primary">0.6190</span></td>
+                                        <td>72.45%</td>
+                                        <td>77.57%</td>
+                                        <td>88.85%</td>
+                                        <td>82.83%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: SIMULATOR -->
+            <section id="tab-simulator" class="tab-content">
+                <div class="grid-2col gap-24">
+                    <!-- Simulator Form -->
+                    <div class="glass-card panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-sliders"></i> Monte um Carrinho de Teste</h3>
+                            <p>Ajuste as variáveis de comportamento para calcular a probabilidade de abandono e o cupom ideal</p>
+                        </div>
+
+                        <form id="sim-form" class="sim-form margin-top-16">
+                            <div class="form-group">
+                                <label for="sim-product"><i class="fa-solid fa-box-open text-warning"></i> 1. Produto Principal no Carrinho:</label>
+                                <select id="sim-product" class="custom-select">
+                                    <option value="smartphone_samsung" data-price="1200" data-cat="electronics">Smartphone Samsung Galaxy Ultra (R$ 1.200,00)</option>
+                                    <option value="smartphone_apple" data-price="1500" data-cat="electronics">iPhone 15 Pro Max (R$ 1.500,00)</option>
+                                    <option value="notebook_dell" data-price="850" data-cat="computers">Notebook Dell Inspiron Core i7 (R$ 850,00)</option>
+                                    <option value="shoes_nike" data-price="180" data-cat="apparel">Tênis Nike Air Max (R$ 180,00)</option>
+                                    <option value="refrigerator_brastemp" data-price="950" data-cat="appliances">Geladeira Brastemp Frost Free (R$ 950,00)</option>
+                                    <option value="headphone_jbl" data-price="60" data-cat="electronics">Fone de Ouvido JBL Bluetooth (R$ 60,00)</option>
+                                </select>
+                                <small class="param-help-text"><i class="fa-solid fa-circle-info"></i> <strong>Impacto no ML:</strong> Determina o valor base (R$) do item principal. Produtos de ticket elevado (ex: iPhone, Geladeira) geram maior barreira financeira de checkout.</small>
+                            </div>
+
+                            <div class="grid-2col gap-16">
+                                <div class="form-group">
+                                    <label for="sim-num-items"><i class="fa-solid fa-cart-flatbed text-primary"></i> 2. Quantidade de Itens:</label>
+                                    <input type="number" id="sim-num-items" class="custom-input" min="1" max="10" value="2">
+                                    <small class="param-help-text"><i class="fa-solid fa-circle-info"></i> <strong>Impacto no ML:</strong> Número de itens no carrinho. Multiplica o valor total e eleva o risco de desistência por surpresa no custo do frete.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="sim-num-views"><i class="fa-solid fa-eye text-success"></i> 3. Visualizações Pré-Carrinho:</label>
+                                    <input type="number" id="sim-num-views" class="custom-input" min="1" max="20" value="2">
+                                    <small class="param-help-text"><i class="fa-solid fa-circle-info"></i> <strong>Impacto no ML:</strong> Páginas vistas antes do carrinho. Muitas views indicam pesquisa comparativa; poucas views indicam compra rápida ou por impulso.</small>
+                                </div>
+                            </div>
+
+                            <div class="grid-2col gap-16">
+                                <div class="form-group">
+                                    <label for="sim-hour"><i class="fa-solid fa-clock text-danger"></i> 4. Horário da Ação no Carrinho:</label>
+                                    <select id="sim-hour" class="custom-select">
+                                        <option value="2">02:00 (Madrugada - Risco Elevado)</option>
+                                        <option value="10">10:00 (Manhã)</option>
+                                        <option value="15" selected>15:00 (Tarde)</option>
+                                        <option value="21">21:00 (Noite)</option>
+                                    </select>
+                                    <small class="param-help-text"><i class="fa-solid fa-circle-info"></i> <strong>Impacto no ML:</strong> Horário da sessão. Navegações de madrugada (22h às 06h) possuem a maior taxa histórica de abandono (<strong>78% a 82%</strong>).</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="sim-user-intent"><i class="fa-solid fa-user-gear text-warning"></i> 5. Perfil Comportamental:</label>
+                                    <select id="sim-user-intent" class="custom-select">
+                                        <option value="high_intent">1. Alta Intenção (Comprador Focado)</option>
+                                        <option value="bargain_hunter" selected>2. Caçador de Descontos (Sensível a Preço)</option>
+                                        <option value="browser">3. Navegador Indeciso (Apenas Olhando)</option>
+                                    </select>
+                                    <small class="param-help-text"><i class="fa-solid fa-circle-info"></i> <strong>Impacto no ML:</strong> Classificação comportamental. Caçadores de desconto exigem cupons de 10%-15% OFF; Compradores focados demandam menos incentivos.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="sim-session-time"><i class="fa-solid fa-stopwatch text-primary"></i> 6. Tempo Navegando na Sessão (segundos):</label>
+                                <div class="range-slider-wrapper">
+                                    <input type="range" id="sim-session-time" class="custom-range" min="10" max="600" step="10" value="90">
+                                    <span id="sim-session-time-val" class="badge badge-neutral">90 seg</span>
+                                </div>
+                                <small class="param-help-text"><i class="fa-solid fa-circle-info"></i> <strong>Impacto no ML:</strong> Tempo em segundos. Sessões curtíssimas indicam abandono imediato por surpresa no frete; sessões longas indicam hesitação no checkout.</small>
+                            </div>
+
+                            <div class="grid-2col gap-12 margin-top-16">
+                                <button type="button" id="btn-predict-cart" class="btn btn-primary btn-lg">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Simular Predição
+                                </button>
+                                <button type="button" id="btn-random-sim" class="btn btn-outline btn-lg">
+                                    <i class="fa-solid fa-dice"></i> 🎲 Simulação Randômica
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Simulator Results -->
+                    <div class="glass-card panel" id="sim-results-panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-lightbulb"></i> Resultado da Predição & Recomendação</h3>
+                            <p>Inferência em tempo real executada pelo modelo de ML</p>
+                        </div>
+
+                        <div class="sim-output-container margin-top-16">
+                            <!-- Gauge / Score Meter -->
+                            <div class="score-gauge-card">
+                                <div class="score-header">
+                                    <span>Probabilidade de Abandono Estimada</span>
+                                    <span class="score-badge" id="sim-risk-badge">ALTO RISCO</span>
+                                </div>
+
+                                <div class="gauge-display">
+                                    <div class="score-number" id="sim-prob-percent">78.5%</div>
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-bar-fill fill-high-risk" id="sim-progress-fill" style="width: 78.5%;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Math Calculation Explainer -->
+                                <div class="score-calculation-explainer margin-top-12" style="font-size: 11px; background: rgba(0, 0, 0, 0.2); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-secondary);">
+                                    <strong style="color: var(--text-main); display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-calculator text-warning"></i> Como este percentual é calculado pelo Modelo de ML:</strong>
+                                    <p style="margin-top: 4px; line-height: 1.4;">
+                                        O modelo aplica a função sigmoide \(p = \frac{1}{1 + e^{-z}}\) somando a **Taxa Média Base (45.8%)** aos pesos comportamentais da sessão (Valor do Carrinho, Horário Noturno, Quantidade de Views e Perfil do Cliente).
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Coupon Recommendation Box -->
+                            <div class="coupon-recommendation-box coupon-active" id="sim-coupon-box">
+                                <div class="coupon-icon-wrapper">
+                                    <i class="fa-solid fa-ticket" id="sim-coupon-icon"></i>
+                                </div>
+                                <div class="coupon-details">
+                                    <span class="coupon-sub">Cupom Recomendado Pelo Modelo:</span>
+                                    <h2 id="sim-coupon-title">Cupom 10% OFF Especial</h2>
+                                    <p id="sim-coupon-rationale">Alto risco de perda em carrinho de ticket expressivo. Cupom de 10% atua como gatilho imediato de conversão.</p>
+                                </div>
+                            </div>
+
+                            <!-- Financial Impact Details -->
+                            <div class="impact-metrics-grid margin-top-16">
+                                <div class="impact-item">
+                                    <span class="impact-label">Valor Total do Carrinho</span>
+                                    <strong class="impact-val" id="sim-cart-val">R$ 1.200,00</strong>
+                                </div>
+                                <div class="impact-item">
+                                    <span class="impact-label">Valor de Desconto Oferecido</span>
+                                    <strong class="impact-val text-warning" id="sim-discount-val">R$ 120,00 (10%)</strong>
+                                </div>
+                                <div class="impact-item">
+                                    <span class="impact-label">GMV Recuperado Estimado</span>
+                                    <strong class="impact-val text-success" id="sim-recovered-val">R$ 378,00</strong>
+                                </div>
+                            </div>
+
+                            <!-- 2 Time Window Triggers Panel -->
+                            <div class="trigger-simulation-card margin-top-16 p-16" style="border: 1px dashed var(--shopee-orange); border-radius: 12px; background: rgba(255, 87, 34, 0.05); padding: 14px;">
+                                <h4 style="color: var(--shopee-orange); display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 10px;">
+                                    <i class="fa-solid fa-clock-rotate-left"></i> Execução dos 2 Gatilhos Temporais de Eventos
+                                </h4>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="font-size: 12px; background: var(--bg-card); padding: 8px 12px; border-radius: 8px; border-left: 3px solid var(--primary-blue);">
+                                        <strong style="color: var(--primary-blue);">⏱️ Gatilho 1 (Cart + 5 Minutos):</strong>
+                                        <span id="sim-trigger-5min-text">"Realize sua compra! Olha o seu produto aqui te esperando!" (Lembrete Suave)</span>
+                                    </div>
+                                    <div style="font-size: 12px; background: var(--bg-card); padding: 8px 12px; border-radius: 8px; border-left: 3px solid var(--success-green);">
+                                        <strong style="color: var(--success-green);">⏰ Gatilho 2 (Cart + 1 Hora):</strong>
+                                        <span id="sim-trigger-1h-text">Model ML Excel identificou perfil e prescreveu cupom de retenção.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

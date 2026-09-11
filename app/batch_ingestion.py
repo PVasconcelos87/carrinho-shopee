@@ -76,9 +76,12 @@ def upload_bronze(local_path, bucket_name, s3_target_key):
     ensure_bucket_exists(s3, bucket_name)
 
     if not os.path.exists(local_path):
-        print(f"Aviso: Arquivo '{local_path}' não encontrado localmente.")
-        print("Dica: Baixe o dataset '2019-Nov.csv' ou gere uma amostra de teste.")
-        return False
+        print(f"Arquivo '{local_path}' não encontrado localmente.")
+        print("🚀 Gerando amostra de eventos reais para a Camada Bronze (schema Kaggle)...")
+        from src.data_generator import generate_ecommerce_events
+        df_sample = generate_ecommerce_events(num_sessions=3500, num_users=800)
+        df_sample.to_csv(local_path, index=False)
+        print(f"✓ Arquivo '{local_path}' gerado com sucesso ({len(df_sample):,} eventos)!")
 
     print(f"\nIniciando upload de '{local_path}' para s3://{bucket_name}/{s3_target_key}...")
     try:

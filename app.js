@@ -42,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initMedallionPageSizeSelectors();
     initMedallionLayerFilters();
     loadRealStatsAndRender();
+    // Atualização em Tempo Real (Polling a cada 4s para refletir novos eventos do Streaming/S3)
+    setInterval(loadRealStatsAndRender, 4000);
     runSimulator();
 
     // --------------------------------------------------------------------------
@@ -289,15 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --------------------------------------------------------------------------
-    // 3. Load Real Statistics JSON & Render Data
+    // 3. Load Real Statistics JSON & Render Data (Live Auto-Polling)
     // --------------------------------------------------------------------------
     async function loadRealStatsAndRender() {
-        if (window.REAL_ML_STATS) {
-            realStats = window.REAL_ML_STATS;
-            applyRealStatsToUI();
-            return;
-        }
-
         try {
             const resp = await fetch(`real_ml_stats.json?t=${Date.now()}`);
             if (resp.ok) {
@@ -306,7 +302,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         } catch (e) {
-            console.log('Utilizando fallback de estatísticas reais pré-computadas...');
+            // Em ambiente file:// ou offline, usa window.REAL_ML_STATS
+        }
+
+        if (window.REAL_ML_STATS) {
+            realStats = window.REAL_ML_STATS;
+            applyRealStatsToUI();
+            return;
         }
 
         realStats = {

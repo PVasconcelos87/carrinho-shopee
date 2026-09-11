@@ -95,6 +95,9 @@ class KafkaTriggerSimulator:
         is_night = 1 if (hour < 6 or hour >= 22) else 0
         cart_value = event.get("total_cart_value", 200.0)
 
+        user_prior_views = event.get("user_prior_views", 4)
+        user_prior_carts = event.get("user_prior_carts", 1)
+
         df_feat = pd.DataFrame([{
             "total_cart_value": cart_value,
             "num_cart_items": num_items,
@@ -102,7 +105,9 @@ class KafkaTriggerSimulator:
             "view_to_cart_ratio": ratio,
             "session_duration_sec": dur,
             "hour_of_day": hour,
-            "is_night": is_night
+            "is_night": is_night,
+            "user_prior_views": user_prior_views,
+            "user_prior_carts": user_prior_carts
         }])
 
         # Predict ML (Modelo Abandono + Modelo Perfil)
@@ -190,7 +195,9 @@ if __name__ == "__main__":
         "num_cart_items": 1,
         "num_views_before_cart": 4,
         "session_duration_sec": 153,
-        "hour_of_day": 5
+        "hour_of_day": 5,
+        "user_prior_views": 8,
+        "user_prior_carts": 1
     }
 
     res = simulator.process_cart_event(sample_event)

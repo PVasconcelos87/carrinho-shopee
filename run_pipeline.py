@@ -34,14 +34,17 @@ def main():
     print("      MBA em Engenharia de Dados - Projeto Hands-On (Sprint 1)")
     print("=" * 80)
     
-    # 1. Ingestão (Bronze) - Carrega da pasta /basededados/ ou Gera Base Multi-Sessão
-    csv_files = get_base_dados_files()
-    if csv_files:
+    # 1. Ingestão (Bronze) - Carrega do 2019-Nov.csv ou da pasta /basededados ou gera base multi-sessão
+    if os.path.exists("2019-Nov.csv"):
+        print(f"\n[ETAPA 1/6] Carregando dataset real a partir de 2019-Nov.csv...")
+        df_raw_events = pd.read_csv("2019-Nov.csv", nrows=150000)
+    elif get_base_dados_files():
         print(f"\n[ETAPA 1/6] Carregando dataset real a partir da pasta /basededados...")
-        df_raw_events = load_basededados_dataset(sample_n=200000)
+        df_raw_events = load_basededados_dataset(sample_n=150000)
     else:
-        print("\n[ETAPA 1/6] Pasta /basededados não encontrada. Gerando dados multi-sessão (Fallback)...")
-        df_raw_events = generate_ecommerce_events(num_sessions=2500, num_users=700, random_seed=42)
+        print("\n[ETAPA 1/6] Gerando dados multi-sessão da jornada do comprador (Fallback)...")
+        from src.evaluate_buyer_journey import generate_multi_session_ecommerce_events
+        df_raw_events = generate_multi_session_ecommerce_events(num_users=1000, random_seed=42)
         
     print(f" -> Total de eventos brutos registrados: {len(df_raw_events):,}")
     print(f" -> Compradores únicos no log: {df_raw_events['user_id'].nunique():,}")

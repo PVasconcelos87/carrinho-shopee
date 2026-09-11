@@ -44,7 +44,7 @@ services:
   # 2. BATCH & DISTRIBUTED PROCESSING (APACHE SPARK MASTER + WORKER)
   # ============================================================================
   spark-master:
-    image: bitnami/spark:3.5.0
+    image: bitnamilegacy/spark:3.5.0
     container_name: ecommerce-spark-master
     platform: linux/amd64
     environment:
@@ -64,7 +64,7 @@ services:
       - data-network
 
   spark-worker:
-    image: bitnami/spark:3.5.0
+    image: bitnamilegacy/spark:3.5.0
     container_name: ecommerce-spark-worker
     platform: linux/amd64
     depends_on:

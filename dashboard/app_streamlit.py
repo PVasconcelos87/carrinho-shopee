@@ -5,6 +5,7 @@ MBA em Engenharia de Dados - Mackenzie
 
 import json
 import os
+import sys
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -16,25 +17,64 @@ st.set_page_config(
     layout="wide"
 )
 
+import time
+from datetime import datetime
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
 STATS_FILE = os.path.join(BASE_DIR, "real_ml_stats.json")
 
 
-@st.cache_data
+# Leitura direta sem cache para refletir o streaming em tempo real imediatamente
 def load_data():
     if os.path.exists(STATS_FILE):
-        with open(STATS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return None
+        try:
+            with open(STATS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
 
 data = load_data()
+
+# Informações do arquivo de estatísticas
+file_mod_time = ""
+if os.path.exists(STATS_FILE):
+    mtime = os.path.getmtime(STATS_FILE)
+    file_mod_time = datetime.fromtimestamp(mtime).strftime("%H:%M:%S")
+
+# Barra lateral com controles de streaming
+st.sidebar.header("📡 Streaming & Ingestão")
+if st.sidebar.button("🔄 Atualizar Dados Agora", use_container_width=True):
+    st.rerun()
+
+auto_refresh = st.sidebar.checkbox("Atualização em Tempo Real (Live)", value=True)
+refresh_interval = st.sidebar.slider("Intervalo de atualização (segundos)", 2, 10, 3)
+st.sidebar.markdown(f"**Última Atualização no Disco:** `{file_mod_time}`")
+st.sidebar.markdown(f"**Relógio do Sistema:** `{datetime.now().strftime('%H:%M:%S')}`")
 
 st.title("🛒 Shopee Data Platform — Abandono de Carrinho & Machine Learning")
 st.markdown("**Hands-On Engenharia de Dados** | Arquitetura Medallion (Amazon S3) + ML + Gatilhos")
 
-if not data:
-    st.error("Arquivo de estatísticas 'real_ml_stats.json' não encontrado. Execute o pipeline primeiro.")
-    st.stop()
+s3_info = data.get("s3Source", {})
+if s3_info:
+    st.success(f"🟢 **Conectado ao Data Lake no Amazon S3**: `s3://{s3_info.get('bucket', 'ecommerce-data-platform-mack-paulo')}/gold/session_features/`")
+else:
+    st.info("☁️ Conectado ao Amazon S3 (Camada Gold)")
+
+# Banner de Destaque: Último Carrinho Recebido via Streaming Kafka/Speed Layer
+sample_carts = data.get("abandonedCartsWithCoupons", [])
+if sample_carts:
+    latest = sample_carts[0]
+    p_risk = latest.get("pAbandon", 0.0) * 100
+    st.info(
+        f"⚡ **Último Evento Recebido em Tempo Real:** "
+        f"Sessão `{latest.get('sessionId', '')}` | "
+        f"Usuário `{latest.get('userId', 0)}` | "
+        f"Valor: **R$ {latest.get('totalVal', 0):,.2f}** | "
+        f"Risco ML: **{p_risk:.1f}%** | "
+        f"Cupom Atribuído: **{latest.get('coupon', {}).get('coupon_label', 'Sem Cupom')}** 🎫"
+    )
 
 kpis = data.get("kpis", {})
 model = data.get("modelMetrics", {})
@@ -43,7 +83,7 @@ journey = data.get("buyerJourneyStats", {})
 # 1. LINHA DE KPIS PRINCIPAIS
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total de Carrinhos Analisados", f"{kpis.get('totalCarts', 0):,}")
-col2.metric("Taxa Média de Abandono", f"{kpis.get('abandonmentRate', 0)*100:.1f}%")
+col2.metric("Taxa Média de Abandono", f"{kpis.get('abandonmentRate', 0)*100:.2f}%")
 col3.metric("GMV em Risco de Perda", f"R$ {kpis.get('gmvLost', 0):,.2f}")
 col4.metric("GMV Estimado Recuperável", f"R$ {kpis.get('gmvRecovered', 0):,.2f}")
 
@@ -106,3 +146,7 @@ if sample_carts:
     st.dataframe(pd.DataFrame(table_rows), use_container_width=True)
 
 st.success("✓ Dados sincronizados com a Camada Gold e o motor de Machine Learning!")
+
+if auto_refresh:
+    time.sleep(refresh_interval)
+    st.rerun()

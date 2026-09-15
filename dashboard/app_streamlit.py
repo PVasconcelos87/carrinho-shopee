@@ -75,9 +75,10 @@ def fetch_latest_prescriptions(data_dict, max_rows=50):
             result = conn.execute(sql, {"lim": max_rows}).fetchall()
             if result:
                 source = "POSTGRES"
+                last_batch = data_dict.get("last_batch_count", 2)
                 for idx, r in enumerate(result):
                     t_str = r.trigger_executed_at.strftime("%H:%M:%S") if r.trigger_executed_at else datetime.now().strftime("%H:%M:%S")
-                    status_tag = "🟢 NOVO (Streaming)" if idx < 3 else "✓ Processado"
+                    status_tag = "🟢 NOVO (Streaming)" if idx < last_batch else "✓ Processado"
                     rows.append({
                         "Status": status_tag,
                         "Horário": t_str,
@@ -97,9 +98,10 @@ def fetch_latest_prescriptions(data_dict, max_rows=50):
 
     # 2. Fallback: Lê do JSON real_ml_stats.json
     sample_carts = data_dict.get("abandonedCartsWithCoupons", [])
+    last_batch = data_dict.get("last_batch_count", 2)
     if sample_carts:
         for idx, c in enumerate(sample_carts[:max_rows]):
-            is_new = c.get("is_new", False) or (idx < 3)
+            is_new = c.get("is_new", False) or (idx < last_batch)
             status_tag = "🟢 NOVO (Streaming)" if is_new else "✓ Processado"
             horario = c.get("timestamp") or c.get("horario") or datetime.now().strftime("%H:%M:%S")
             rows.append({

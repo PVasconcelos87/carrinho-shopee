@@ -455,6 +455,7 @@ class RealtimeStreamPipeline:
             c["is_new"] = True
         combined_samples = new_carts_with_coupons + current_sample
         self.existing_stats["abandonedCartsWithCoupons"] = combined_samples[:60]
+        self.existing_stats["last_batch_count"] = len(new_carts_with_coupons)
         self.existing_stats["kpis"] = kpis
         self.existing_stats["buyerJourneyStats"] = journey
         self.existing_stats["funnel"] = funnel

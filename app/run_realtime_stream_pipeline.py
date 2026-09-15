@@ -479,13 +479,14 @@ class RealtimeStreamPipeline:
 
         print(f"  🟢 [Dashboards Sincronizados] Total Carrinhos: {kpis['totalCarts']:,} | GMV Recuperado: R$ {kpis['gmvRecovered']:,.2f}")
 
-    def run_stream_cycle(self, num_events=20, delay_sec=0.8, continuous=False):
-        """Executa o ciclo completo de ingestão e simulação."""
+    def run_stream_cycle(self, num_events=10, delay_sec=2.0, continuous=True):
+        """Executa o ciclo completo de ingestão e simulação em tempo real."""
         print("\n" + "=" * 80)
         print("  🚀 INICIANDO PIPELINE DE STREAMING: KAFKA -> S3 -> POSTGRES -> DASHBOARDS")
         print(f"  • Amazon S3 Bucket : s3://{self.bucket_name}")
-        print(f"  • Modo de Execução : {'Contínuo (Loop Live)' if continuous else f'Lote de {num_events} Eventos'}")
-        print(f"  • Intervalo/Delay  : {delay_sec} segundos por evento")
+        print(f"  • Modo de Execução : {'Contínuo (10 eventos a cada 2 segundos)' if continuous else f'Lote único de {num_events} Eventos'}")
+        print(f"  • Eventos por ciclo: {num_events}")
+        print(f"  • Intervalo/Ciclo  : {delay_sec} segundos")
         print("=" * 80 + "\n")
 
         cycle_count = 0
@@ -557,7 +558,7 @@ class RealtimeStreamPipeline:
                         "recoveredGMV": trig2["estimated_recovered_gmv"]
                     })
 
-                    time.sleep(delay_sec)
+                    time.sleep(0.05)
 
                 # 3. Ingestão no Amazon S3 (Bronze, Silver, Gold)
                 print("\n📦 Gravando Micro-Batch no Amazon S3 (Data Lake Medallion)...")
@@ -571,10 +572,13 @@ class RealtimeStreamPipeline:
                 print("📊 Sincronizando Métricas em Tempo Real para os Dashboards...")
                 self.sync_dashboards(batch_ui_cards)
 
-                print(f"✓ Ciclo #{cycle_count} concluído com sucesso!")
+                print(f"✓ Ciclo #{cycle_count} concluído com sucesso! ({num_events} carrinhos inseridos)")
 
                 if not continuous:
                     break
+
+                print(f"⏳ Pausa de {delay_sec}s antes do próximo ciclo de {num_events} eventos... (Pressione Ctrl+C para encerrar)")
+                time.sleep(delay_sec)
 
             print("\n" + "=" * 80)
             print("  🏆 STREAMING E INGESTÃO CONCLUÍDOS COM SUCESSO!")
@@ -591,10 +595,10 @@ class RealtimeStreamPipeline:
 def main():
     parser = argparse.ArgumentParser(description="Pipeline de Streaming e Ingestão em Tempo Real Shopee ML")
     parser.add_argument("--bucket", default=os.getenv("S3_BUCKET_NAME", "ecommerce-data-platform-mack-paulo"), help="Nome do Bucket S3")
-    parser.add_argument("--events", type=int, default=20, help="Quantidade de eventos/carrinhos por ciclo")
-    parser.add_argument("--delay", type=float, default=0.6, help="Intervalo em segundos entre cada evento simulado")
+    parser.add_argument("--events", type=int, default=10, help="Quantidade de eventos/carrinhos por ciclo (padrão: 10)")
+    parser.add_argument("--delay", type=float, default=2.0, help="Intervalo em segundos entre cada ciclo (padrão: 2.0s)")
     parser.add_argument("--kafka-servers", default="localhost:9092", help="Servidores bootstrap do Kafka")
-    parser.add_argument("--continuous", action="store_true", help="Executa o streaming em loop contínuo")
+    parser.add_argument("--once", action="store_true", help="Executa apenas 1 ciclo de eventos e encerra (padrão: loop contínuo)")
 
     args = parser.parse_args()
 
@@ -605,7 +609,7 @@ def main():
     pipeline.run_stream_cycle(
         num_events=args.events,
         delay_sec=args.delay,
-        continuous=args.continuous
+        continuous=(not args.once)
     )
 
 

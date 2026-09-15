@@ -37,6 +37,88 @@ def load_data():
 
 data = load_data()
 
+
+def fetch_latest_prescriptions(data_dict, max_rows=50):
+    """
+    Busca as últimas amostras geradas em tempo real:
+    1º Prioridade: PostgreSQL Serving Layer (tabela cart_coupons_prescribed com timestamp exato)
+    2º Fallback: real_ml_stats.json (Cache S3/Local)
+    """
+    rows = []
+    source = "JSON"
+
+    # 1. Tenta buscar direto do PostgreSQL
+    try:
+        from sqlalchemy import create_engine, text
+        db_url = os.getenv("DATABASE_URL", "postgresql://mack_user:mack_password@localhost:5432/ecommerce_db")
+        engine = create_engine(db_url, connect_args={"connect_timeout": 2})
+        sql = text("""
+            SELECT 
+                p.prescription_id,
+                p.trigger_executed_at,
+                p.session_id,
+                p.user_id,
+                p.total_cart_value,
+                p.p_abandonment,
+                p.urgency_level,
+                p.coupon_label,
+                p.discount_pct,
+                p.estimated_recovered_gmv,
+                COALESCE(s.num_cart_items, 1) as num_cart_items,
+                COALESCE(s.num_views_before_cart, 3) as num_views_before_cart
+            FROM cart_coupons_prescribed p
+            LEFT JOIN session_features s ON p.session_id = s.session_id
+            ORDER BY p.prescription_id DESC
+            LIMIT :lim
+        """)
+        with engine.connect() as conn:
+            result = conn.execute(sql, {"lim": max_rows}).fetchall()
+            if result:
+                source = "POSTGRES"
+                for idx, r in enumerate(result):
+                    t_str = r.trigger_executed_at.strftime("%H:%M:%S") if r.trigger_executed_at else datetime.now().strftime("%H:%M:%S")
+                    status_tag = "🟢 NOVO (Streaming)" if idx < 3 else "✓ Processado"
+                    rows.append({
+                        "Status": status_tag,
+                        "Horário": t_str,
+                        "Sessão": str(r.session_id)[:12] + "...",
+                        "ID Usuário": int(r.user_id),
+                        "Valor do Carrinho": f"R$ {float(r.total_cart_value):,.2f}",
+                        "Itens": int(r.num_cart_items),
+                        "Views": int(r.num_views_before_cart),
+                        "Prob. Abandono": f"{float(r.p_abandonment)*100:.1f}%",
+                        "Cupom Prescrito": str(r.coupon_label),
+                        "Urgência": str(r.urgency_level),
+                        "GMV Recuperado": f"R$ {float(r.estimated_recovered_gmv):,.2f}"
+                    })
+                return rows, source
+    except Exception:
+        pass
+
+    # 2. Fallback: Lê do JSON real_ml_stats.json
+    sample_carts = data_dict.get("abandonedCartsWithCoupons", [])
+    if sample_carts:
+        for idx, c in enumerate(sample_carts[:max_rows]):
+            is_new = c.get("is_new", False) or (idx < 3)
+            status_tag = "🟢 NOVO (Streaming)" if is_new else "✓ Processado"
+            horario = c.get("timestamp") or c.get("horario") or datetime.now().strftime("%H:%M:%S")
+            rows.append({
+                "Status": status_tag,
+                "Horário": horario,
+                "Sessão": str(c.get("sessionId", ""))[:12] + "...",
+                "ID Usuário": c.get("userId"),
+                "Valor do Carrinho": f"R$ {c.get('totalVal', 0):,.2f}",
+                "Itens": c.get("numItems", 1),
+                "Views": c.get("numViews", 1),
+                "Prob. Abandono": f"{c.get('pAbandon', 0)*100:.1f}%",
+                "Cupom Prescrito": c.get("coupon", {}).get("coupon_label", ""),
+                "Urgência": c.get("coupon", {}).get("urgency_level", "Média"),
+                "GMV Recuperado": f"R$ {c.get('recoveredGMV', 0):,.2f}"
+            })
+
+    return rows, source
+
+
 # Informações do arquivo de estatísticas
 file_mod_time = ""
 if os.path.exists(STATS_FILE):
@@ -62,18 +144,17 @@ if s3_info:
 else:
     st.info("☁️ Conectado ao Amazon S3 (Camada Gold)")
 
-# Banner de Destaque: Último Carrinho Recebido via Streaming Kafka/Speed Layer
-sample_carts = data.get("abandonedCartsWithCoupons", [])
-if sample_carts:
-    latest = sample_carts[0]
-    p_risk = latest.get("pAbandon", 0.0) * 100
+# Banner de Destaque: Busca a amostra mais recente para exibir no topo
+preview_rows, _ = fetch_latest_prescriptions(data, max_rows=1)
+if preview_rows:
+    latest = preview_rows[0]
     st.info(
-        f"⚡ **Último Evento Recebido em Tempo Real:** "
-        f"Sessão `{latest.get('sessionId', '')}` | "
-        f"Usuário `{latest.get('userId', 0)}` | "
-        f"Valor: **R$ {latest.get('totalVal', 0):,.2f}** | "
-        f"Risco ML: **{p_risk:.1f}%** | "
-        f"Cupom Atribuído: **{latest.get('coupon', {}).get('coupon_label', 'Sem Cupom')}** 🎫"
+        f"⚡ **Último Evento Recebido em Tempo Real ({latest.get('Horário')}):** "
+        f"Sessão `{latest.get('Sessão')}` | "
+        f"Usuário `{latest.get('ID Usuário')}` | "
+        f"Valor: **{latest.get('Valor do Carrinho')}** | "
+        f"Risco ML: **{latest.get('Prob. Abandono')}** | "
+        f"Cupom Atribuído: **{latest.get('Cupom Prescrito')}** 🎫"
     )
 
 kpis = data.get("kpis", {})
@@ -136,23 +217,24 @@ with g2:
 
 # 4. TABELA DE CUPONS RECOMENDADOS COM STATUS E HORÁRIO
 st.subheader("🎫 Amostra de Carrinhos com Cupons Atribuídos pelo Modelo")
-if sample_carts:
-    table_rows = []
-    for idx, c in enumerate(sample_carts[:25]):
-        status_tag = "🟢 NOVO (Streaming)" if idx == 0 else "✓ Processado"
-        table_rows.append({
-            "Status": status_tag,
-            "Sessão": str(c.get("sessionId", ""))[:12] + "...",
-            "ID Usuário": c.get("userId"),
-            "Valor do Carrinho": f"R$ {c.get('totalVal', 0):,.2f}",
-            "Itens": c.get("numItems"),
-            "Views": c.get("numViews"),
-            "Prob. Abandono": f"{c.get('pAbandon', 0)*100:.1f}%",
-            "Cupom Prescrito": c.get("coupon", {}).get("coupon_label", ""),
-            "Urgência": c.get("coupon", {}).get("urgency_level", "Média"),
-            "GMV Recuperado": f"R$ {c.get('recoveredGMV', 0):,.2f}"
-        })
-    st.dataframe(pd.DataFrame(table_rows), use_container_width=True)
+
+col_head1, col_head2, col_head3 = st.columns([3, 1, 1])
+with col_head2:
+    max_display = st.selectbox("Exibir:", [10, 25, 50, 100], index=1, key="num_samples_select")
+with col_head3:
+    if st.button("🔄 Atualizar Amostras", use_container_width=True):
+        st.rerun()
+
+table_rows, sample_source = fetch_latest_prescriptions(data, max_rows=max_display)
+
+with col_head1:
+    source_label = "🟢 Fonte: PostgreSQL Serving Layer (Ao Vivo)" if sample_source == "POSTGRES" else "📁 Fonte: Cache S3 / real_ml_stats.json"
+    st.caption(f"**{source_label}** | *Exibindo as {len(table_rows)} amostras mais recentes*")
+
+if table_rows:
+    st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
+else:
+    st.info("Nenhuma amostra de carrinho encontrada no momento. Execute o gerador de streaming.")
 
 st.success("✓ Dados sincronizados com a Camada Gold e o motor de Machine Learning!")
 

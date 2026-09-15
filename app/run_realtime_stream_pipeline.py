@@ -449,10 +449,13 @@ class RealtimeStreamPipeline:
 
         # Atualiza lista de amostras de carrinhos recentes (FIFO - mantém os últimos 60)
         current_sample = self.existing_stats.get("abandonedCartsWithCoupons", [])
+        for c in current_sample:
+            c["is_new"] = False
+        for c in new_carts_with_coupons:
+            c["is_new"] = True
         combined_samples = new_carts_with_coupons + current_sample
         self.existing_stats["abandonedCartsWithCoupons"] = combined_samples[:60]
         self.existing_stats["kpis"] = kpis
-        self.existing_stats["funnel"] = funnel
         self.existing_stats["buyerJourneyStats"] = journey
         self.existing_stats["funnel"] = funnel
         self.existing_stats["lastStreamUpdate"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -541,6 +544,8 @@ class RealtimeStreamPipeline:
                         "hourOfDay": session_feat["hour_of_day"],
                         "pAbandon": trig2["p_abandonment"],
                         "isAbandoned": trig2["is_abandoned"],
+                        "timestamp": datetime.now().strftime("%H:%M:%S"),
+                        "is_new": True,
                         "coupon": {
                             "coupon_code": trig2["coupon_code"],
                             "coupon_label": trig2["coupon_label"],

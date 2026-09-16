@@ -181,19 +181,16 @@ col4.metric("GMV Estimado Recuperável", f"R$ {kpis.get('gmvRecovered', 0):,.2f}
 
 st.markdown("---")
 
-# 2. JORNADA DO COMPRADOR & GANHO DE ACURÁCIA
-st.subheader("🗺️ Jornada do Comprador antes da Compra & Performance de ML")
-j1, j2, j3, j4 = st.columns(4)
+# 2. JORNADA DO COMPRADOR
+st.subheader("🗺️ Jornada do Comprador antes da Compra")
+j1, j2 = st.columns(2)
 views_stat = journey.get("viewsBeforePurchase", {})
 carts_stat = journey.get("priorCartsBeforePurchase", {})
-dur_stat = journey.get("journeyDurationHours", {})
 
 v_mean = views_stat.get('mean', 10.1)
 c_mean = carts_stat.get('mean', 0.99)
 j1.metric("Views Médias até Comprar", f"{v_mean if v_mean > 1 else 10.1:.1f} views", f"Mediana: 7.0")
 j2.metric("Carrinhos Prévios até a Compra", f"{c_mean if c_mean > 0.5 else 0.99:.2f} carts", f"Mediana: 1.0")
-j3.metric("Acurácia do Modelo Random Forest", f"{model.get('accuracy', 0.7523)*100:.1f}%", "+14.5% vs Baseline")
-j4.metric("Tempo Médio de Decisão", f"{dur_stat.get('mean', 54.6):.1f} horas", "~2.3 dias de maturação")
 
 # 3. GRÁFICOS DO FUNIL E COMPARAÇÃO
 g1, g2 = st.columns(2)

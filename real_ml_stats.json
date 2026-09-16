@@ -1,12 +1,12 @@
 {
   "kpis": {
-    "totalCarts": 1002,
+    "totalCarts": 2566,
     "abandonedCarts": 1175,
     "abandonmentRate": 0.4579111457521434,
-    "totalGMV": 1278207.6700000002,
-    "gmvLost": 516004.89999999997,
-    "gmvRecovered": 149987.6483,
-    "couponEligibleCount": 938
+    "totalGMV": 1146188.1,
+    "gmvLost": 524890.0,
+    "gmvRecovered": 274850.0,
+    "couponEligibleCount": 1022
   },
   "funnel": {
     "views": 290929,

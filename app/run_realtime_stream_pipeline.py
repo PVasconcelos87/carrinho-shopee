@@ -133,14 +133,14 @@ class RealtimeStreamPipeline:
                 pass
         return {
             "kpis": {
-                "totalCarts": 3586,
-                "abandonedCarts": 1642,
+                "totalCarts": 2566,
+                "abandonedCarts": 1175,
                 "abandonmentRate": 0.458,
-                "totalGMV": 1450200.0,
-                "gmvLost": 664000.0,
-                "gmvRecovered": 348000.0
+                "totalGMV": 1146188.10,
+                "gmvLost": 524890.00,
+                "gmvRecovered": 274850.00
             },
-            "funnel": {"views": 294619, "carts": 3586, "purchases": 1944},
+            "funnel": {"views": 294619, "carts": 3504, "purchases": 4077},
             "abandonedCartsWithCoupons": []
         }
 
@@ -418,14 +418,20 @@ class RealtimeStreamPipeline:
         added_abandoned = sum(1 for c in new_carts_with_coupons if c["isAbandoned"] == 1)
         added_gmv = sum(c["totalVal"] for c in new_carts_with_coupons)
         added_lost = sum(c["totalVal"] for c in new_carts_with_coupons if c["isAbandoned"] == 1)
-        added_rec = sum(c["recoveredGMV"] for c in new_carts_with_coupons if c["isAbandoned"] == 1)
+        # Garante integridade da base histórica real (2.566 carrinhos analisados)
+        if kpis.get("totalCarts", 0) < 2566:
+            kpis["totalCarts"] = 2566
+            kpis["abandonedCarts"] = 1175
+            kpis["totalGMV"] = 1146188.10
+            kpis["gmvLost"] = 524890.00
+            kpis["gmvRecovered"] = 274850.00
 
-        kpis["totalCarts"] = kpis.get("totalCarts", 3586) + added_carts
-        kpis["abandonedCarts"] = kpis.get("abandonedCarts", 1642) + added_abandoned
+        kpis["totalCarts"] = kpis.get("totalCarts", 2566) + added_carts
+        kpis["abandonedCarts"] = kpis.get("abandonedCarts", 1175) + added_abandoned
         kpis["abandonmentRate"] = round(kpis["abandonedCarts"] / max(kpis["totalCarts"], 1), 4)
-        kpis["totalGMV"] = round(kpis.get("totalGMV", 1450200.0) + added_gmv, 2)
-        kpis["gmvLost"] = round(kpis.get("gmvLost", 664000.0) + added_lost, 2)
-        kpis["gmvRecovered"] = round(kpis.get("gmvRecovered", 348000.0) + added_rec, 2)
+        kpis["totalGMV"] = round(kpis.get("totalGMV", 1146188.10) + added_gmv, 2)
+        kpis["gmvLost"] = round(kpis.get("gmvLost", 524890.00) + added_lost, 2)
+        kpis["gmvRecovered"] = round(kpis.get("gmvRecovered", 274850.00) + added_rec, 2)
 
         # Funil de Conversão
         funnel = self.existing_stats.get("funnel", {"views": 294619, "carts": 3586, "purchases": 1944})

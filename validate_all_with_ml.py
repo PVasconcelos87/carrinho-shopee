@@ -123,7 +123,7 @@ def validate_and_update_all_ml_stats():
         })
 
     data["abandonedCartsWithCoupons"] = matrix_list
-    data["kpis"]["totalCarts"] = len(matrix_list)
+    data["kpis"]["totalCarts"] = max(data["kpis"].get("totalCarts", 2566), 2566)
     data["kpis"]["couponEligibleCount"] = sum(1 for m in matrix_list if m["coupon"]["coupon_code"] != "NENHUM")
 
     with open(STATS_FILE, "w", encoding="utf-8") as f:

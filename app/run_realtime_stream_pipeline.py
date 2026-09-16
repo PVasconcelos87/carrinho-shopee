@@ -450,10 +450,18 @@ class RealtimeStreamPipeline:
         if new_carts_with_coupons and kpis["totalCarts"] > 0:
             total_c = kpis["totalCarts"]
             old_c = total_c - added_carts
+            
+            # Recalcula média ponderada de visualizações prévias
             views_sum = sum(c.get("numViews", 4) for c in new_carts_with_coupons)
             old_views_mean = journey.get("viewsBeforePurchase", {}).get("mean", 10.1)
             new_views_mean = round(((old_views_mean * old_c) + views_sum) / total_c, 2)
             journey["viewsBeforePurchase"]["mean"] = new_views_mean
+
+            # Recalcula média ponderada de carrinhos prévios da jornada em tempo real
+            carts_sum = sum(c.get("priorCarts", 1) for c in new_carts_with_coupons)
+            old_carts_mean = journey.get("priorCartsBeforePurchase", {}).get("mean", 0.99)
+            new_carts_mean = round(((old_carts_mean * old_c) + carts_sum) / total_c, 2)
+            journey["priorCartsBeforePurchase"]["mean"] = new_carts_mean
 
         # Atualiza lista de amostras de carrinhos recentes (FIFO - mantém os últimos 60)
         current_sample = self.existing_stats.get("abandonedCartsWithCoupons", [])
@@ -551,6 +559,7 @@ class RealtimeStreamPipeline:
                         "totalVal": cart_val,
                         "numItems": session_feat["num_cart_items"],
                         "numViews": session_feat["num_views_before_cart"],
+                        "priorCarts": session_feat["user_prior_carts"],
                         "hourOfDay": session_feat["hour_of_day"],
                         "pAbandon": trig2["p_abandonment"],
                         "isAbandoned": trig2["is_abandoned"],
